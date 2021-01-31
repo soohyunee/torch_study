@@ -1,19 +1,24 @@
 import re
+import gensim
 import numpy as np
 import pandas as pd
 from collections import defaultdict
 
 ## modified codes in https://github.com/yoonkim/CNN_sentence 
 class preprocess:
-    def __init__(self, word_vecs, save=False):
+    def __init__(self, data_path, save=False):
         self.k = 300     # the embedding dimension of pretrained vector noted at the paper
         self.revs = []
         self.vocab_size = 0
         self.max_len = 56 # the value what yoon used at his codes
         self.word_idx_map = dict()
-        self.word_vecs = word_vecs
+        ## limit을 준 건, full로 올리면 메모리 에러가 나기 때문 
+        self.word_vecs = gensim.models.KeyedVectors.load_word2vec_format("/kaggle/input/googlenewsvectorsnegative300/GoogleNews-vectors-negative300.bin", binary=True, limit=500000)
+        # self.stop = set(stopwords.words('english'))
         self.save = save
+        self.data_path = data_path
 
+        
     def clean_str(self, string):
         ## string이 sentence로 들어와서, self.stop으로 못 거름...=_=;
         ## 우선 stopwords 안 거르는걸로 해서 함 돌려보자.
@@ -32,9 +37,10 @@ class preprocess:
         string = re.sub(r"\s{2,}", " ", string)
         return string.strip().lower()
     
+    
     def build_data_cv(self, cv=10):
-        pos_file = "/kaggle/input/posneg-for-cnn4sc/rt-polarity.pos"
-        neg_file = "/kaggle/input/posneg-for-cnn4sc/rt-polarity.neg"
+        pos_file = self.data_path + "rt-polarity.pos"
+        neg_file = self.data_path + "rt-polarity.neg"
 
         file_list = [pos_file, neg_file]    
         self.vocab = defaultdict(float)
@@ -52,6 +58,7 @@ class preprocess:
                     orig_rev = self.clean_str(" ".join(rev))
         
                     words = set(orig_rev.split())
+                    
                     if len(words) > self.max_len:
                         self.max_len = len(words)
                     
@@ -94,8 +101,7 @@ class preprocess:
         self.revs, self.vocab, self.max_len = self.build_data_cv()
         self.add_unknown_words()
         self.W = np.zeros(shape=(self.vocab_size+1, self.k), dtype='float32')            
-#         self.W[0] = np.zeros(self.k, dtype='float32')
-        # 왜 굳이 W의 0번 인덱스를 따로 해주고, i는 1부터 시작하게 해놨지?
+        
         i = 0
         for word in self.vocab:
             print(i, 'th word:', word)
@@ -105,8 +111,7 @@ class preprocess:
             
         if self.save:
             self.save_file()
-#         print('W shape:', self.W.shape)
-        # word_idx_map은 dictionary 타입이다.
+
         return self.W, self.word_idx_map, self.revs, self.max_len
     
     def save_file(self):
