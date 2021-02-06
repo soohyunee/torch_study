@@ -4,13 +4,11 @@ import torch
 import gensim
 import torch.nn as nn 
 from torch import optim
-# custom module
-from utils import Make_Dataset, Cnn_Model, Kfold_Split, MaxOverTimePooling, binary_accuracy
-
 ###--------------------------- settings --------------------------------
 local = True
 p_epochs = 25      # 25 is what a value of epoch Yoon used to his code.
-status = 'static'     # 'random', 'static', 'non-static', 'multi'
+
+status = 'random'     # 'random', 'static', 'non-static', 'multi'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # tpu = False
@@ -25,23 +23,30 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 #     device = xm.xla_device()
 #     print('device check:', device)
 ###----------------------- checking if local -------------------------###
+
 if local:
     data_path = 'D:\\Notes\\git_repo\\torch_study\\01_CNN_for_SC\\data\\'
+    json_path = 'D:\\Notes\\git_repo\\torch_study\\01_CNN_for_SC\\data\\'
     google_path = "D:\\Notes\\data\\google_wordvector\\"
+    from preprocess import preprocess
+    from utils import Make_Dataset, Cnn_Model, Kfold_Split, MaxOverTimePooling, binary_accuracy
 else:
     data_path = '/kaggle/input/posneg-for-cnn4sc/'
+    json_path = '/kaggle/working/'
     google_path = "/kaggle/input/googlenewsvectorsnegative300/"
-    
 
-if os.path.isfile(data_path+"data_{}.json".format(status)):
-    with open(data_path+"data_{}.json".format(status)) as json_file:
+    
+if os.path.isfile(json_path+"data_{}.json".format(status)):
+    with open(json_path+"data_{}.json".format(status)) as json_file:
         files = json.load(json_file)
 else:
-    from preprocess import preprocess
-    pre = preprocess(data_path=data_path, save=True, status=status)
+    pre = preprocess(data_path=data_path, json_path=json_path, status=status, save=True)
     word_vecs, W, word_idx_map, revs, _ = pre.get_W()
-    with open(data_path+"data_{}.json".format(status)) as json_file:
-        files = json.load(json_file) 
+
+
+with open(json_path+"data_{}.json".format(status)) as json_file:
+    files = json.load(json_file)
+
 
 revs, W, word_idx_map, vocab = files['revs'], files['w'], files['word_idx_map'], files['vocab']
 model = Cnn_Model(word_vecs=W, status=status)
@@ -52,8 +57,10 @@ optimizer = optim.Adam(model.parameters())
 
 for i in range(0,10):
     note = {}
-    print('iiiiiiii:', i)
-    train_loader, test_loader = Kfold_Split(revs, word_idx_map, test_fold_id=i, proper=True)
+    print('test_fold_id iii:', i)
+    
+    # 데이터로 쓸 revs는 여기서 들어감
+    train_loader, test_loader = Kfold_Split(revs, word_idx_map, test_fold_id=i)
     ##------------------------- 그때그때 모델을 만들어주고 돌아가도록 해야지 cheating이 없다.
     model.train()
     optimizer.zero_grad()

@@ -35,7 +35,7 @@ class Make_Dataset(TensorDataset):
             return {'input_ids': torch.LongTensor(tmp).flatten()}
 
 
-def Kfold_Split(revs, word_idx_map, test_fold_id, proper=True):
+def Kfold_Split(revs, word_idx_map, test_fold_id):
     train = []
     test = []
     for datum in revs:
@@ -47,18 +47,12 @@ def Kfold_Split(revs, word_idx_map, test_fold_id, proper=True):
     train_dataset = Make_Dataset(word_idx_map=word_idx_map, xy=train)
     test_dataset = Make_Dataset(word_idx_map=word_idx_map, xy=test)
 
-    if proper:
-#         proper_train_batch = int(len(train_dataset)/10)
-#         proper_test_batch = int(len(train_dataset)/10)
-        proper_train_batch, proper_test_batch = 955, 955
-#         print('proper batch sizes:', proper_train_batch)  # 955~962 사이값으로 나오는데, 50으로 할때랑 비교해보면 acc가 거의 10 이상 차이가 난다.
-#         원래는 train의 변화에 따라 batch_size도 다르게 줬음 했는데.. 모델을 계속 다르게 줄 수가 없음..
-    else:
-        proper_train_batch = 50 
-        proper_test_batch = 50
+    train_batch = 50 
+    test_batch = 50
         
-    train_loader = DataLoader(train_dataset, batch_size=proper_train_batch, shuffle=True, drop_last=True)
-    test_loader = DataLoader(test_dataset, batch_size=proper_test_batch, shuffle=False, drop_last=True)
+    #TODO: batch_sizes 모두 collate_fn써서 적합하게 바꿔주기
+    train_loader = DataLoader(train_dataset, batch_size=train_batch, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=test_batch, shuffle=False, drop_last=True)
     return train_loader, test_loader
 
 
@@ -98,20 +92,15 @@ def MaxOverTimePooling(x, status='non-static'):   # retrieve each feature map
 class Cnn_Model(nn.Module):
     def __init__(self, word_vecs, status='non-static'):
         super(Cnn_Model, self).__init__()
-        
         assert status in ['random','static','non-static','multi']
         self.status = status
-        self.freeze = True if status =='static' else False      # determining whether the W is static/non-static
+        self.freeze = True if status=='static' else False      # determining whether the W is static/non-static
         self.input_dim = 1   
         self.n_filters = 100
         self.kernel_sizes = [3,4,5]
-        if self.status == 'random':
-            self.word_vecs = torch.FloatTensor(word_vecs)
-        else:
-            self.word_vecs = torch.FloatTensor(word_vecs.vectors)
+        self.word_vecs = torch.FloatTensor(word_vecs)
         
-        ## nn.embedding은 2-dim float tensor로 만들어지고,
-        ## from_pretrained에서의 freeze는 기본적으로 True이다.
+        ## nn.embedding은 2-dim float tensor로 만들어지고, from_pretrained에서의 freeze는 기본적으로 True이다.
         ## static이 false면, freeze=False, 즉 non-static
         # https://github.com/aisolab/nlp_classification/blob/master/Convolutional_Neural_Networks_for_Sentence_Classification/model/ops.py
         if self.status == 'multi': 
@@ -120,7 +109,7 @@ class Cnn_Model(nn.Module):
             
         elif self.status == 'random':
             self.embedding = nn.Embedding(len(self.word_vecs), embedding_dim=300)
-            
+
         else:
             self.embedding = nn.Embedding.from_pretrained(self.word_vecs, freeze=self.freeze)
         
@@ -150,8 +139,6 @@ class Cnn_Model(nn.Module):
     
         ### a penultimate layer
         x = self.dropout(x) * 0.5 # 50, 30
-        #TODO: 이게 test_loader가 돌아갈 땐 실행이 안 되어야 하는데..
-        
         output = self.fc(x)                          # 50, 30
         return output.squeeze()
 
