@@ -2,7 +2,7 @@
 
 01. CNN_for_SC - [Convolutional Neural Networks for Sentence Classification (2014)](https://www.aclweb.org/anthology/D14-1181.pdf)
 
-02. CharCNN - [Character-Aware Neural Language Models (2015)](https://arxiv.org/pdf/1508.06615.pdf)
+02. Char_CNN - [Character-Aware Neural Language Models (2015)](https://arxiv.org/pdf/1508.06615.pdf)
 
 
 # future works
